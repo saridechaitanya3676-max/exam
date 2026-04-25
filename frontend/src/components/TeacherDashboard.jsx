@@ -38,6 +38,7 @@ function TeacherDashboard({ onBack }) {
   const [examStatus, setExamStatus] = useState('waiting');
   const [showResultsToggle, setShowResultsToggle] = useState(false);
   const [publicBaseUrl, setPublicBaseUrl] = useState(localStorage.getItem('publicBaseUrl') || '');
+  const [filterTestName, setFilterTestName] = useState('All');
 
   useEffect(() => {
     if (publicBaseUrl) {
@@ -278,12 +279,16 @@ function TeacherDashboard({ onBack }) {
   };
 
   const exportToExcel = () => {
-    if (results.length === 0) return alert('No results to export');
+    const filteredResults = filterTestName === 'All' 
+      ? results 
+      : results.filter(r => r.test_name === filterTestName);
+
+    if (filteredResults.length === 0) return alert('No results to export');
     
     const headers = ['Student Name', 'Roll No', 'Test Name', 'Score', 'Total Questions', 'Tab Switches', 'Timestamp'];
     const csvContent = [
       headers.join(','),
-      ...results.map(r => [
+      ...filteredResults.map(r => [
         `"${r.student_name}"`,
         `"${r.roll_no}"`,
         `"${r.test_name}"`,
@@ -298,7 +303,7 @@ function TeacherDashboard({ onBack }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Quiz_Results_${testName}_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute('download', `Results_${filterTestName}_${new Date().toLocaleDateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -881,14 +886,30 @@ function TeacherDashboard({ onBack }) {
         </div>
       ) : (
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h3>Student Performance Report</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Detailed results for all tests managed by you.</p>
             </div>
-            <button className="btn btn-primary" onClick={exportToExcel} style={{ background: 'var(--success)' }}>
-              <Download size={18} /> Export to Excel
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Filter:</span>
+                <select 
+                  className="input" 
+                  style={{ margin: 0, padding: '0.4rem 2rem 0.4rem 1rem', width: 'auto' }}
+                  value={filterTestName}
+                  onChange={(e) => setFilterTestName(e.target.value)}
+                >
+                  <option value="All">All Tests</option>
+                  {Array.from(new Set(results.map(r => r.test_name))).filter(Boolean).map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <button className="btn btn-primary" onClick={exportToExcel} style={{ background: 'var(--success)' }}>
+                <Download size={18} /> Export to CSV
+              </button>
+            </div>
           </div>
           
           <div style={{ overflowX: 'auto' }}>
@@ -908,32 +929,37 @@ function TeacherDashboard({ onBack }) {
                 {results.length === 0 ? (
                   <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No results found yet.</td></tr>
                 ) : (
-                  results.map(r => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 600 }}>{r.student_name}</td>
-                      <td>{r.roll_no}</td>
-                      <td><span style={{ fontSize: '0.8rem', opacity: 0.8 }}>{r.test_name || 'N/A'}</span></td>
-                      <td style={{ fontSize: '1.1rem', fontWeight: 700 }}>{r.score} / {r.total_questions}</td>
-                      <td>
-                        <span style={{ 
-                          color: (r.tab_switches || 0) > 0 ? 'var(--error)' : 'var(--success)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          fontWeight: 600
-                        }}>
-                          {(r.tab_switches || 0) > 0 ? <ShieldAlert size={14} /> : <Monitor size={14} />}
-                          {r.tab_switches || 0}
-                        </span>
-                      </td>
-                      <td>{new Date(r.timestamp).toLocaleDateString()}</td>
-                      <td>
-                        <span className={`badge ${r.score / r.total_questions >= 0.5 ? 'badge-success' : 'badge-error'}`}>
-                          {r.score / r.total_questions >= 0.5 ? 'Passed' : 'Failed'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  results
+                    .filter(r => filterTestName === 'All' || r.test_name === filterTestName)
+                    .map(r => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 600 }}>{r.student_name}</td>
+                        <td>{r.roll_no}</td>
+                        <td><span style={{ fontSize: '0.8rem', opacity: 0.8 }}>{r.test_name || 'N/A'}</span></td>
+                        <td style={{ fontSize: '1.1rem', fontWeight: 700 }}>{r.score} / {r.total_questions}</td>
+                        <td>
+                          <span style={{ 
+                            color: (r.tab_switches || 0) > 0 ? 'var(--error)' : 'var(--success)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            fontWeight: 600
+                          }}>
+                            {(r.tab_switches || 0) > 0 ? <ShieldAlert size={14} /> : <Monitor size={14} />}
+                            {r.tab_switches || 0}
+                          </span>
+                        </td>
+                        <td>{new Date(r.timestamp).toLocaleDateString()}</td>
+                        <td>
+                          <span className={`badge ${r.score / r.total_questions >= 0.5 ? 'badge-success' : 'badge-error'}`}>
+                            {r.score / r.total_questions >= 0.5 ? 'Passed' : 'Failed'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                )}
+                {results.length > 0 && results.filter(r => filterTestName === 'All' || r.test_name === filterTestName).length === 0 && (
+                  <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No results match this filter.</td></tr>
                 )}
               </tbody>
             </table>
