@@ -26,26 +26,26 @@ let pgPool;
             
             // Helper to run queries on either DB
             db = {
-                run: async (sql, params = []) => {
-                    let pgSql = sql;
-                    // Handle SQLite specific "INSERT OR IGNORE"
-                    if (sql.includes('INSERT OR IGNORE')) {
-                        pgSql = sql.replace('INSERT OR IGNORE INTO', 'INSERT INTO') + ' ON CONFLICT DO NOTHING';
-                    }
-                    
-                    // For INSERT, get the ID back
-                    if (pgSql.trim().toUpperCase().startsWith('INSERT')) {
-                        pgSql += ' RETURNING id';
-                    }
+            run: async (sql, params = []) => {
+                let pgSql = sql;
+                // Handle SQLite specific "INSERT OR IGNORE"
+                if (sql.toUpperCase().includes('INSERT OR IGNORE')) {
+                    pgSql = sql.replace(/INSERT OR IGNORE INTO/gi, 'INSERT INTO') + ' ON CONFLICT DO NOTHING';
+                }
+                
+                // For INSERT, get the ID back (only if not already present)
+                if (pgSql.trim().toUpperCase().startsWith('INSERT') && !pgSql.toUpperCase().includes('RETURNING')) {
+                    pgSql += ' RETURNING id';
+                }
 
-                    let paramIndex = 1;
-                    const convertedSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
-                    
-                    // Wrap params in array if single value
-                    const normalizedParams = Array.isArray(params) ? params : [params];
-                    const res = await pgPool.query(convertedSql, normalizedParams);
-                    return { lastID: res.rows[0]?.id };
-                },
+                let paramIndex = 1;
+                const convertedSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
+                
+                // Wrap params in array if single value
+                const normalizedParams = Array.isArray(params) ? params : [params];
+                const res = await pgPool.query(convertedSql, normalizedParams);
+                return { lastID: res.rows[0]?.id };
+            },
                 get: async (sql, params = []) => {
                     let paramIndex = 1;
                     const convertedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
@@ -473,19 +473,19 @@ app.get('/api/submissions', async (req, res) => {
     }
 });
 
-// --- Serving Frontend ---
-// Serve static files from the React app dist folder
-app.use(express.static(path.join(__dirname, 'frontend/dist')));
+// Vercel handles static files via its own routing, so we only serve them locally
+if (!process.env.VERCEL) {
+    const frontendPath = path.join(__dirname, 'frontend/dist');
+    app.use(express.static(frontendPath));
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+}
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
-});
-
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(`Students can join at http://[YOUR-IP]:${PORT}`);
-});
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server is running locally on http://localhost:${PORT}`);
+    });
+}
 
 module.exports = app;
