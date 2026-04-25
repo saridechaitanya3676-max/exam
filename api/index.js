@@ -41,23 +41,26 @@ let pgPool;
                 let paramIndex = 1;
                 const convertedSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
                 
-                // Wrap params in array if single value
-                const normalizedParams = Array.isArray(params) ? params : [params];
-                const res = await pgPool.query(convertedSql, normalizedParams);
+                // Ensure all params are numbers if they look like numbers, to avoid Postgres type errors
+                const typedParams = normalizedParams.map(p => (typeof p === 'string' && !isNaN(p) && p.trim() !== '') ? parseInt(p) : p);
+                const res = await pgPool.query(convertedSql, typedParams);
                 return { lastID: res.rows[0]?.id };
             },
                 get: async (sql, params = []) => {
                     let paramIndex = 1;
                     const convertedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
                     const normalizedParams = Array.isArray(params) ? params : [params];
-                    const res = await pgPool.query(convertedSql, normalizedParams);
+                    const typedParams = normalizedParams.map(p => (typeof p === 'string' && !isNaN(p) && p.trim() !== '') ? parseInt(p) : p);
+                    const res = await pgPool.query(convertedSql, typedParams);
                     return res.rows[0];
                 },
                 all: async (sql, params = []) => {
                     let paramIndex = 1;
                     const convertedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
                     const normalizedParams = Array.isArray(params) ? params : [params];
-                    const res = await pgPool.query(convertedSql, normalizedParams);
+                    // Ensure all params are numbers if they look like numbers, to avoid Postgres type errors
+                    const typedParams = normalizedParams.map(p => (typeof p === 'string' && !isNaN(p) && p.trim() !== '') ? parseInt(p) : p);
+                    const res = await pgPool.query(convertedSql, typedParams);
                     return res.rows;
                 },
                 exec: async (sql) => pgPool.query(sql)
@@ -275,7 +278,7 @@ app.get('/api/questions', async (req, res) => {
         // Parse options JSON
         const parsedQuestions = questions.map(q => ({
             ...q,
-            options: JSON.parse(q.options)
+            options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
         }));
         res.json(parsedQuestions);
     } catch (err) {
@@ -313,7 +316,7 @@ app.put('/api/questions/:id', async (req, res) => {
 app.delete('/api/questions/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        await db.run('DELETE FROM questions WHERE id = ?', id);
+        await db.run('DELETE FROM questions WHERE id = ?', [parseInt(id)]);
         res.json({ message: 'Question deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -324,7 +327,7 @@ app.delete('/api/questions/:id', async (req, res) => {
 app.get('/api/teacher/tests', async (req, res) => {
     const { teacher_id } = req.query;
     try {
-        const tests = await db.all('SELECT * FROM tests WHERE teacher_id = ? ORDER BY created_at DESC', [teacher_id]);
+        const tests = await db.all('SELECT * FROM tests WHERE teacher_id = ? ORDER BY created_at DESC', [parseInt(teacher_id)]);
         res.json(tests);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -346,7 +349,11 @@ app.delete('/api/teacher/tests/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`Attempting to delete test record ID: ${id}`);
     try {
-        await db.run('DELETE FROM tests WHERE id = ?', [parseInt(id)]);
+        // Ensure id is integer for Postgres
+        const testId = parseInt(id);
+        if (isNaN(testId)) return res.status(400).json({ error: 'Invalid test ID' });
+        
+        await db.run('DELETE FROM tests WHERE id = ?', [testId]);
         res.json({ status: 'success' });
     } catch (err) {
         console.error(`Error deleting test record ${id}:`, err.message);
@@ -463,7 +470,7 @@ app.get('/api/submissions', async (req, res) => {
         let params = [];
         if (teacher_id) {
             query += ' WHERE teacher_id = ?';
-            params.push(teacher_id);
+            params.push(parseInt(teacher_id));
         }
         query += ' ORDER BY timestamp DESC';
         const submissions = await db.all(query, params);

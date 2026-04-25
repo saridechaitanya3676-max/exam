@@ -35,9 +35,15 @@ function TeacherDashboard({ onBack }) {
   const [timerSec, setTimerSec] = useState(30);
   const [newQ, setNewQ] = useState({ text: '', options: ['', '', '', ''], correct_index: 0, timer_seconds: 30 });
 
-  // Exam Status
   const [examStatus, setExamStatus] = useState('waiting');
   const [showResultsToggle, setShowResultsToggle] = useState(false);
+  const [publicBaseUrl, setPublicBaseUrl] = useState(localStorage.getItem('publicBaseUrl') || '');
+
+  useEffect(() => {
+    if (publicBaseUrl) {
+      localStorage.setItem('publicBaseUrl', publicBaseUrl);
+    }
+  }, [publicBaseUrl]);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   useEffect(() => {
@@ -438,9 +444,10 @@ function TeacherDashboard({ onBack }) {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => {
-            const studentUrl = `${window.location.origin}/?role=student&teacher=${username}&test=${encodeURIComponent(testName)}`;
+            const base = publicBaseUrl || window.location.origin;
+            const studentUrl = `${base}/?role=student&teacher=${username}&test=${encodeURIComponent(testName)}`;
             navigator.clipboard.writeText(studentUrl);
-            alert(`Share link for "${testName}" copied to clipboard!`);
+            alert(`Share link for "${testName}" copied to clipboard!${!publicBaseUrl && window.location.hostname === 'localhost' ? '\n\nNote: You are on localhost. External devices may need a Public URL.' : ''}`);
           }}>
             <Share2 size={18} /> Share Link
           </button>
@@ -694,6 +701,24 @@ function TeacherDashboard({ onBack }) {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div>
+                <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem' }}>Public Base URL (Optional)</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                  Set this to your Pinggy or Vercel URL (e.g. https://xxxx.pinggy.link) so share links work on all networks.
+                </p>
+                <input 
+                  className="input" 
+                  placeholder="https://your-public-url.com" 
+                  value={publicBaseUrl} 
+                  onChange={e => setPublicBaseUrl(e.target.value)} 
+                  style={{ marginBottom: '0.5rem' }}
+                />
+                {window.location.hostname === 'localhost' && !publicBaseUrl && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--warning)', fontStyle: 'italic' }}>
+                    ⚠️ Currently using 'localhost'. Links won't work on other devices.
+                  </p>
+                )}
+              </div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>
                 <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem' }}>Student Results Visibility</p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                   If ON, students can see their final score immediately after the exam.
@@ -739,7 +764,8 @@ function TeacherDashboard({ onBack }) {
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                           <button className="btn btn-secondary" title="Copy Share Link" onClick={() => {
-                            const studentUrl = `${window.location.origin}/?role=student&teacher=${username}&test=${encodeURIComponent(t.name)}`;
+                            const base = publicBaseUrl || window.location.origin;
+                            const studentUrl = `${base}/?role=student&teacher=${username}&test=${encodeURIComponent(t.name)}`;
                             navigator.clipboard.writeText(studentUrl);
                             alert(`Link for "${t.name}" copied!`);
                           }}>
