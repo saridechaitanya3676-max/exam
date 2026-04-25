@@ -27,6 +27,7 @@ export const teacherApi = {
   getTests: (teacher_id) => api.get('/teacher/tests', { params: { teacher_id } }),
   createTest: (teacher_id, name) => api.post('/teacher/tests', { teacher_id, name }),
   deleteTest: (id) => api.delete(`/teacher/tests/${id}`),
+  generateAIQuestions: (data) => api.post('/ai/generate', data),
 };
 
 export const studentApi = {

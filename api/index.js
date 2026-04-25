@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -482,6 +483,65 @@ app.post('/api/submissions', async (req, res) => {
     }
 });
 
+// --- AI Question Generation ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'YOUR_API_KEY_HERE');
+
+const BOTS = {
+    standard: {
+        name: "Standard Bot",
+        style: "Balanced & Clear",
+        prompt: "Generate 10 balanced multiple-choice questions on the following syllabus for 8051 microcontrollers. Provide a mix of easy and medium difficulty. Ensure one option is clearly correct. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 30}]"
+    },
+    expert: {
+        name: "Expert Bot",
+        style: "Challenging & Deep",
+        prompt: "Generate 10 very challenging multiple-choice questions on the following syllabus for 8051 microcontrollers. Focus on deep conceptual understanding, multi-step logic, and advanced architecture. Ensure one option is clearly correct. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 60}]"
+    },
+    speedster: {
+        name: "Speedster Bot",
+        style: "Fast & Direct",
+        prompt: "Generate 10 quick-fire multiple-choice questions on the following syllabus for 8051 microcontrollers. Focus on direct recall of registers, flags, and instructions. Questions should be short and snappy. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 15}]"
+    },
+    practical: {
+        name: "Practical Bot",
+        style: "Hardware & Assembly",
+        prompt: "Generate 10 practical, code-focused multiple-choice questions on the following syllabus for 8051 microcontrollers. Include assembly code snippets and hardware interfacing scenarios. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 60}]"
+    },
+    guru: {
+        name: "Guru Bot",
+        style: "Comprehensive & Intricate",
+        prompt: "Generate 10 comprehensive multiple-choice questions on the following syllabus for 8051 microcontrollers. Cover edge cases, timing details, and intricate hardware specifics. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 45}]"
+    }
+};
+
+app.post('/api/ai/generate', async (req, res) => {
+    const { syllabus, botType, teacher_id } = req.body;
+    
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_API_KEY_HERE') {
+        return res.status(400).json({ error: 'Gemini API Key is not configured on the server. Please set GEMINI_API_KEY environment variable.' });
+    }
+
+    const bot = BOTS[botType] || BOTS.standard;
+    
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const prompt = `${bot.prompt}\n\nSyllabus/Topics:\n${syllabus}`;
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
+        
+        // Clean up JSON if AI includes markdown code blocks
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        const questions = JSON.parse(text);
+        res.json({ questions, botName: bot.name });
+    } catch (err) {
+        console.error('AI Generation Error:', err);
+        res.status(500).json({ error: 'Failed to generate questions. ' + err.message });
+    }
+});
+
 app.get('/api/submissions', async (req, res) => {
     const { teacher_id } = req.query;
     try {
@@ -503,7 +563,7 @@ app.get('/api/submissions', async (req, res) => {
 if (!process.env.VERCEL) {
     const frontendPath = path.join(__dirname, '../frontend/dist');
     app.use(express.static(frontendPath));
-    app.get('*', (req, res) => {
+    app.get(/.*/, (req, res) => {
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
 }

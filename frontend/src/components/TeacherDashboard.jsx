@@ -3,7 +3,8 @@ import { teacherApi } from '../api';
 import { 
   Trash2, Plus, ArrowLeft, BarChart2, BookOpen, LogOut, Share2, Copy, 
   CheckCircle, Edit2, Eye, EyeOff, Play, Square, Download, Users, 
-  Clock, ShieldAlert, Monitor, ChevronRight, Settings
+  Clock, ShieldAlert, Monitor, ChevronRight, Settings,
+  Bot, Zap, Rocket, Cpu, Brain, Loader2, Sparkles, Wand2
 } from 'lucide-react';
 
 function TeacherDashboard({ onBack }) {
@@ -18,7 +19,7 @@ function TeacherDashboard({ onBack }) {
   const [securityAnswer, setSecurityAnswer] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [forgotStep, setForgotStep] = useState(1);
-  const [tab, setTab] = useState('questions'); // questions, results, live, history
+  const [tab, setTab] = useState('questions'); // questions, results, live, history, ai
   const [questions, setQuestions] = useState([]);
   const [results, setResults] = useState([]);
   const [tests, setTests] = useState([]);
@@ -39,6 +40,12 @@ function TeacherDashboard({ onBack }) {
   const [showResultsToggle, setShowResultsToggle] = useState(false);
   const [publicBaseUrl, setPublicBaseUrl] = useState(localStorage.getItem('publicBaseUrl') || '');
   const [filterTestName, setFilterTestName] = useState('All');
+  
+  // AI Bot State
+  const [syllabus, setSyllabus] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [generatedQs, setGeneratedQs] = useState([]);
+  const [aiError, setAiError] = useState('');
 
   useEffect(() => {
     if (publicBaseUrl) {
@@ -338,6 +345,42 @@ function TeacherDashboard({ onBack }) {
       }
     }
   };
+  const handleGenerateAI = async (botType) => {
+    if (!syllabus.trim()) return alert('Please enter a syllabus or topic description');
+    setAiLoading(true);
+    setAiError('');
+    setGeneratedQs([]);
+    try {
+      const res = await teacherApi.generateAIQuestions({ syllabus, botType, teacher_id: teacherId });
+      setGeneratedQs(res.data.questions);
+      setMsg(`Successfully generated ${res.data.questions.length} questions using ${res.data.botName}!`);
+    } catch (err) {
+      setAiError(err.response?.data?.error || 'Failed to generate questions. Please check if GEMINI_API_KEY is set.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (generatedQs.length === 0) return;
+    if (!testName) return alert('Please provide a Test Name for these questions');
+    
+    try {
+      for (const q of generatedQs) {
+        await teacherApi.createQuestion({
+          ...q,
+          teacher_id: teacherId,
+          test_name: testName
+        });
+      }
+      alert(`Imported ${generatedQs.length} questions into "${testName}"!`);
+      setGeneratedQs([]);
+      setTab('questions');
+      loadData();
+    } catch (err) {
+      alert('Error importing some questions');
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -470,6 +513,9 @@ function TeacherDashboard({ onBack }) {
           </button>
           <button className={`btn ${tab === 'results' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('results')}>
             <BarChart2 size={18} /> Reports
+          </button>
+          <button className={`btn ${tab === 'ai' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('ai')}>
+            <Sparkles size={18} /> AI Generator
           </button>
           <button className={`btn ${tab === 'history' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('history')}>
             <BookOpen size={18} /> Previous Exams
@@ -748,6 +794,125 @@ function TeacherDashboard({ onBack }) {
               </div>
             </div>
           </div>
+        </div>
+      ) : tab === 'ai' ? (
+        <div className="animate-fade-in">
+          <div className="card" style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ background: 'var(--primary)', padding: '1rem', borderRadius: '1rem', color: 'white' }}>
+                <Sparkles size={32} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0 }}>AI Question <span style={{ color: 'var(--primary)' }}>Paper Generator</span></h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Paste your syllabus below and select a bot to generate a full question paper automatically.</p>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '2rem' }}>
+              <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Syllabus / Topics</p>
+              <textarea 
+                className="input" 
+                style={{ minHeight: '150px', fontSize: '1rem', padding: '1rem' }}
+                placeholder="e.g. Unit 1: Introduction to 8051, Architecture, Pin Diagram, Memory Organization, Addressing Modes..."
+                value={syllabus}
+                onChange={e => setSyllabus(e.target.value)}
+              />
+            </div>
+
+            <p style={{ fontWeight: 600, marginBottom: '1rem' }}>Select AI Bot Personality</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+              {[
+                { id: 'standard', name: 'Standard Bot', style: 'Balanced & Clear', icon: <Bot size={24} />, color: '#6366f1' },
+                { id: 'expert', name: 'Expert Bot', style: 'Hard & Conceptual', icon: <Zap size={24} />, color: '#f59e0b' },
+                { id: 'speedster', name: 'Speedster Bot', style: 'Fast & Direct', icon: <Rocket size={24} />, color: '#ec4899' },
+                { id: 'practical', name: 'Practical Bot', style: 'Code & Hardware', icon: <Cpu size={24} />, color: '#10b981' },
+                { id: 'guru', name: 'Guru Bot', style: 'Deep & Detailed', icon: <Brain size={24} />, color: '#8b5cf6' },
+              ].map(bot => (
+                <button 
+                  key={bot.id}
+                  onClick={() => handleGenerateAI(bot.id)}
+                  disabled={aiLoading}
+                  className="card bot-card"
+                  style={{ 
+                    cursor: 'pointer', 
+                    textAlign: 'center', 
+                    border: '2px solid transparent',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '1.5rem'
+                  }}
+                >
+                  <div style={{ color: bot.color, marginBottom: '0.5rem' }}>{bot.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>{bot.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{bot.style}</div>
+                </button>
+              ))}
+            </div>
+
+            {aiLoading && (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <Loader2 size={48} className="animate-spin" style={{ color: 'var(--primary)', marginBottom: '1rem' }} />
+                <p style={{ fontWeight: 600 }}>Bot is thinking and generating questions...</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>This may take 10-20 seconds.</p>
+              </div>
+            )}
+
+            {aiError && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--error)', marginBottom: '2rem', textAlign: 'center' }}>
+                <p style={{ fontWeight: 600 }}>Error: {aiError}</p>
+                <p style={{ fontSize: '0.85rem' }}>Make sure the server has GEMINI_API_KEY set correctly.</p>
+              </div>
+            )}
+          </div>
+
+          {generatedQs.length > 0 && (
+            <div className="animate-slide-up">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3>Preview Generated Questions ({generatedQs.length})</h3>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <input 
+                    className="input" 
+                    style={{ marginBottom: 0, width: '200px' }} 
+                    placeholder="New Test Name" 
+                    value={testName} 
+                    onChange={e => setTestName(e.target.value)} 
+                  />
+                  <button className="btn btn-primary" onClick={handleBulkImport}>
+                    <Download size={18} /> Bulk Import to Bank
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                {generatedQs.map((q, i) => (
+                  <div key={i} className="card" style={{ padding: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                       <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Question {i+1}</span>
+                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>⏱️ {q.timer_seconds}s</span>
+                    </div>
+                    <p style={{ fontWeight: 600, marginBottom: '1rem' }}>{q.text}</p>
+                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                      {q.options.map((opt, oidx) => (
+                        <div key={oidx} style={{ 
+                          padding: '0.75rem', 
+                          borderRadius: '0.5rem', 
+                          background: oidx === q.correct_index ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.03)',
+                          border: oidx === q.correct_index ? '1px solid var(--success)' : '1px solid transparent',
+                          color: oidx === q.correct_index ? 'var(--success)' : 'var(--text-muted)',
+                          fontSize: '0.9rem'
+                        }}>
+                          {opt}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : tab === 'history' ? (
         <div className="card">
