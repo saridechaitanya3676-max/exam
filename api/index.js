@@ -40,7 +40,7 @@ let pgPool;
 
                 let paramIndex = 1;
                 const convertedSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
-                
+                const normalizedParams = Array.isArray(params) ? params : [params];
                 // Ensure all params are numbers if they look like numbers, to avoid Postgres type errors
                 const typedParams = normalizedParams.map(p => (typeof p === 'string' && !isNaN(p) && p.trim() !== '') ? parseInt(p) : p);
                 const res = await pgPool.query(convertedSql, typedParams);
