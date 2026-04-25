@@ -761,13 +761,17 @@ function TeacherDashboard({ onBack }) {
                             type="button"
                             className="btn btn-secondary" 
                             title="Delete Record" 
-                            style={{ color: 'var(--error)' }} 
+                            style={{ color: 'var(--error)', gap: '0.5rem' }} 
                             onClick={(e) => {
-                              console.log("Delete button clicked for ID:", t.id);
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("DEBUG: Delete button clicked for ID:", t.id);
+                              window.alert("Delete initiated for ID: " + t.id);
                               deleteTest(e, t.id);
                             }}
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={16} style={{ pointerEvents: 'none' }} />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>
