@@ -23,8 +23,8 @@ function App() {
     }
   }, []);
 
-  if (view === 'teacher') return <TeacherDashboard onBack={() => setView('landing')} />;
-  if (view === 'student') return <StudentPortal onBack={() => setView('landing')} teacherUsername={teacherUsername} initialTestName={urlTestName} />;
+  if (view === 'teacher') return <TeacherDashboard onBack={() => { setView('landing'); setTeacherUsername(''); }} />;
+  if (view === 'student') return <StudentPortal onBack={() => { setView('landing'); setTeacherUsername(''); }} teacherUsername={teacherUsername} initialTestName={urlTestName} />;
 
   return (
     <div className="container animate-fade-in">

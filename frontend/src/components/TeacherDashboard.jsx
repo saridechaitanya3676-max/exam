@@ -199,14 +199,21 @@ function TeacherDashboard({ onBack }) {
     }
   };
 
-  const deleteTest = async (id) => {
+  const deleteTest = async (e, id) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    console.log("Attempting to delete test ID:", id);
     if (window.confirm('Are you sure you want to delete this test history? This will only remove the record from history, not the questions.')) {
       try {
-        await teacherApi.deleteTest(id);
-        alert('Test record deleted');
-        loadData();
+        const res = await teacherApi.deleteTest(id);
+        console.log("Delete response:", res.data);
+        alert('Test record deleted successfully');
+        loadData(); // Refresh the list
       } catch (err) {
-        console.error("Delete error:", err);
+        console.error("Delete error details:", err);
         alert('Failed to delete test: ' + (err.response?.data?.error || err.message));
       }
     }
@@ -749,7 +756,7 @@ function TeacherDashboard({ onBack }) {
                           }}>
                             <Edit2 size={16} />
                           </button>
-                          <button className="btn btn-secondary" title="Delete Record" style={{ color: 'var(--error)' }} onClick={() => deleteTest(t.id)}>
+                          <button className="btn btn-secondary" title="Delete Record" style={{ color: 'var(--error)' }} onClick={(e) => deleteTest(e, t.id)}>
                             <Trash2 size={16} />
                           </button>
                         </div>

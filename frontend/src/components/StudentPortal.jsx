@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { studentApi } from '../api';
 import { ArrowLeft, Send, CheckCircle, GraduationCap, Award, ShieldAlert, Clock, Play } from 'lucide-react';
 
-function StudentPortal({ onBack, teacherUsername, initialTestName }) {
+function StudentPortal({ onBack, teacherUsername: initialTeacherUsername, initialTestName }) {
   const [step, setStep] = useState('login'); // login, waiting, quiz, results
   const [studentInfo, setStudentInfo] = useState({ name: '', roll_no: '' });
+  const [teacherUsername, setTeacherUsername] = useState(initialTeacherUsername || '');
   const [teacherId, setTeacherId] = useState(null);
   const [examStatus, setExamStatus] = useState('waiting');
   const [testName, setTestName] = useState(initialTestName || '');
@@ -35,13 +36,13 @@ function StudentPortal({ onBack, teacherUsername, initialTestName }) {
   // Polling for Exam Status (Start/End/Results Visibility)
   useEffect(() => {
     let interval;
-    const checkStatus = async () => {
-      try {
+        if (!teacherUsername) return; // Don't poll if teacher is not known
         const res = await studentApi.getExamStatus(teacherUsername);
         setExamStatus(res.data.status);
         setTestName(res.data.test_name);
         setTeacherId(res.data.teacher_id);
-        setShowResults(res.data.show_results);
+        setShowResults(res.data.show_results === true); // Ensure boolean
+
         
         // Handle Exam Start
         if (step === 'waiting' && res.data.status === 'started') {
@@ -189,6 +190,16 @@ function StudentPortal({ onBack, teacherUsername, initialTestName }) {
               onChange={e => setStudentInfo({...studentInfo, roll_no: e.target.value})} 
               required 
             />
+            {!initialTeacherUsername && (
+              <input 
+                type="text" 
+                placeholder="Teacher ID / Username" 
+                className="input-field"
+                value={teacherUsername}
+                onChange={(e) => setTeacherUsername(e.target.value)}
+                required 
+              />
+            )}
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
               {loading ? 'Joining Room...' : 'Enter Waiting Room'}
             </button>
