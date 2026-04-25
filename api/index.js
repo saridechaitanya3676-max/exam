@@ -473,19 +473,18 @@ app.get('/api/submissions', async (req, res) => {
     }
 });
 
-// --- Serving Frontend ---
-// Serve static files from the React app dist folder
-app.use(express.static(path.join(__dirname, 'frontend/dist')));
+// Vercel handles static files via vercel.json rewrites, so we don't need this in production
+if (process.env.NODE_ENV !== 'production') {
+    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    });
+}
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
-});
-
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(`Students can join at http://[YOUR-IP]:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+    });
+}
 
 module.exports = app;
