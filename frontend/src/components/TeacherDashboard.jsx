@@ -457,6 +457,12 @@ function TeacherDashboard({ onBack }) {
           <button className={`btn ${tab === 'live' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('live')}>
             <Play size={18} /> Live Exam
           </button>
+          <button className={`btn ${tab === 'monitoring' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => {
+            setTab('monitoring');
+            loadData();
+          }}>
+            <ShieldAlert size={18} /> Live Monitoring
+          </button>
           <button className={`btn ${tab === 'results' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('results')}>
             <BarChart2 size={18} /> Reports
           </button>
@@ -678,41 +684,16 @@ function TeacherDashboard({ onBack }) {
                       background: 'var(--bg-card)', 
                       padding: '1rem', 
                       borderRadius: '0.75rem', 
-                      border: s.tab_switches > 0 ? '1px solid var(--error)' : '1px solid rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.1)',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
                       gap: '0.75rem'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ 
-                          width: '10px', 
-                          height: '10px', 
-                          borderRadius: '50%', 
-                          background: s.tab_switches > 0 ? 'var(--error)' : 'var(--success)', 
-                          boxShadow: `0 0 10px ${s.tab_switches > 0 ? 'var(--error)' : 'var(--success)'}` 
-                        }}></div>
-                        <div>
-                          <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.student_name}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.roll_no}</p>
-                        </div>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 10px var(--success)' }}></div>
+                      <div>
+                        <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.student_name}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.roll_no}</p>
                       </div>
-                      {s.tab_switches > 0 && (
-                        <div style={{ 
-                          background: 'rgba(244, 63, 94, 0.1)', 
-                          color: 'var(--error)', 
-                          padding: '0.2rem 0.5rem', 
-                          borderRadius: '0.4rem',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem'
-                        }}>
-                          <ShieldAlert size={12} />
-                          {s.tab_switches}
-                        </div>
-                      )}
                     </div>
                   ))
                 )}
@@ -826,6 +807,70 @@ function TeacherDashboard({ onBack }) {
                             </button>
                           )}
                         </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : tab === 'monitoring' ? (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <div>
+              <h3>Real-time Proctoring Dashboard</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Monitor student activity and tab-switching in real-time during the active exam.</p>
+            </div>
+            <div className="badge badge-success animate-pulse">Monitoring Active</div>
+          </div>
+          
+          <div style={{ overflowX: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Student Name</th>
+                  <th>Roll No</th>
+                  <th>Status</th>
+                  <th>Tab Switches</th>
+                  <th>Alert</th>
+                </tr>
+              </thead>
+              <tbody>
+                {joinedStudents.length === 0 ? (
+                  <tr><td colSpan="5" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No students are currently connected.</td></tr>
+                ) : (
+                  joinedStudents.map(s => (
+                    <tr key={s.id}>
+                      <td style={{ fontWeight: 600 }}>{s.student_name}</td>
+                      <td>{s.roll_no}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></div>
+                          <span style={{ fontSize: '0.8rem' }}>Connected</span>
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '1.2rem', fontWeight: 700, color: (s.tab_switches || 0) > 0 ? 'var(--error)' : 'inherit' }}>
+                        {s.tab_switches || 0}
+                      </td>
+                      <td>
+                        {(s.tab_switches || 0) > 0 ? (
+                          <span style={{ 
+                            background: 'rgba(244, 63, 94, 0.1)', 
+                            color: 'var(--error)', 
+                            padding: '0.3rem 0.6rem', 
+                            borderRadius: '0.4rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                          }}>
+                            <ShieldAlert size={14} /> Potential Cheating
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--success)', fontSize: '0.75rem' }}>Secured</span>
+                        )}
                       </td>
                     </tr>
                   ))

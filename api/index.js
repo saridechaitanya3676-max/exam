@@ -160,18 +160,12 @@ let pgPool;
             await db.run("ALTER TABLE teachers ADD COLUMN show_results INTEGER DEFAULT 0");
         }
 
-        const wCols = await db.all("PRAGMA table_info(waiting_room)");
-        if (!wCols.find(c => c.name === 'tab_switches')) {
+        const wrCols = await db.all("PRAGMA table_info(waiting_room)");
+        if (!wrCols.find(c => c.name === 'tab_switches')) {
             await db.run("ALTER TABLE waiting_room ADD COLUMN tab_switches INTEGER DEFAULT 0");
         }
     } else {
         await db.exec(schema);
-        // Postgres migration for tab_switches
-        try {
-            await db.exec("ALTER TABLE waiting_room ADD COLUMN IF NOT EXISTS tab_switches INTEGER DEFAULT 0");
-        } catch (e) {
-            // Ignore if column already exists
-        }
     }
 
     console.log('Database tables verified/created.');
@@ -420,6 +414,19 @@ app.get('/api/teacher/settings/:teacher_id', async (req, res) => {
     }
 });
 
+app.post('/api/student/report-switch', async (req, res) => {
+    const { roll_no, teacher_id } = req.body;
+    try {
+        await db.run(
+            'UPDATE waiting_room SET tab_switches = tab_switches + 1 WHERE roll_no = ? AND teacher_id = ?',
+            [roll_no, parseInt(teacher_id)]
+        );
+        res.json({ status: 'success' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/teacher/joined-students', async (req, res) => {
     const { teacher_id } = req.query;
     try {
@@ -452,18 +459,8 @@ app.post('/api/student/join', async (req, res) => {
         // Check if already in waiting room
         const existing = await db.get('SELECT * FROM waiting_room WHERE roll_no = ? AND teacher_id = ?', [roll_no, teacher_id]);
         if (!existing) {
-            await db.run('INSERT INTO waiting_room (student_name, roll_no, teacher_id, tab_switches) VALUES (?, ?, ?, ?)', [student_name, roll_no, teacher_id, 0]);
+            await db.run('INSERT INTO waiting_room (student_name, roll_no, teacher_id) VALUES (?, ?, ?)', [student_name, roll_no, teacher_id]);
         }
-        res.json({ status: 'success' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/student/update-switches', async (req, res) => {
-    const { roll_no, teacher_id, tab_switches } = req.body;
-    try {
-        await db.run('UPDATE waiting_room SET tab_switches = ? WHERE roll_no = ? AND teacher_id = ?', [tab_switches, roll_no, teacher_id]);
         res.json({ status: 'success' });
     } catch (err) {
         res.status(500).json({ error: err.message });

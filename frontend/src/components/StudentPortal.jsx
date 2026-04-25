@@ -20,20 +20,16 @@ function StudentPortal({ onBack, teacherUsername: initialTeacherUsername, initia
 
   // Proctoring: Detect Tab Switches
   useEffect(() => {
-    if (step !== 'quiz' && step !== 'waiting') return;
+    if (step !== 'quiz') return;
 
     const handleVisibilityChange = async () => {
       if (document.hidden) {
-        const newCount = tabSwitches + 1;
-        setTabSwitches(newCount);
+        setTabSwitches(prev => prev + 1);
         console.warn("Tab switch detected!");
-        
-        // Report to server instantly
         try {
-          await studentApi.updateSwitches({
+          await studentApi.reportTabSwitch({
             roll_no: studentInfo.roll_no,
-            teacher_id: teacherId,
-            tab_switches: newCount
+            teacher_id: teacherId
           });
         } catch (err) {
           console.error("Failed to report tab switch", err);
@@ -43,7 +39,7 @@ function StudentPortal({ onBack, teacherUsername: initialTeacherUsername, initia
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [step, tabSwitches, studentInfo.roll_no, teacherId]);
+  }, [step]);
 
   // Polling for Exam Status (Start/End/Results Visibility)
   useEffect(() => {
