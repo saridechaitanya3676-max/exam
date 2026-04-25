@@ -1,23 +1,31 @@
-# 8051 Quiz Pro (Standalone Mode)
+# 8051 Quiz Pro (Cloud & Local Mode)
 
-This is a portable version of the **8051 Quiz Pro** application. It has been simplified to run as a single server without needing Docker, GitHub, or FastAPI.
+This version of **8051 Quiz Pro** is ready for both local use and cloud hosting (Vercel + PostgreSQL).
 
-## 🚀 How to Start
+## ☁️ Cloud Deployment (Vercel)
 
-1.  **Run the Server**: Double-click the file **`run_quiz.bat`**. This will start your local quiz server.
-2.  **Open Dashboard**: Go to [http://localhost:8000](http://localhost:8000) in your web browser. This is where you can add questions and see student scores.
-3.  **Share with Students**:
-    - **Offline (Same Wi-Fi)**: Tell students to go to the IP address shown in the black server window.
-    - **Online (From Home)**: Double-click **`share_quiz.bat`**. It will give you a public link (e.g., `https://example.loca.lt`) to send to your students.
+1. **GitHub**: Push your code to your GitHub repository.
+2. **Vercel**: Import your repository into Vercel.
+3. **Database**: Create a **Vercel Postgres** database in the "Storage" tab and connect it to your project.
+4. **Build Settings**:
+   - **Build Command**: `cd frontend && npm install && npm run build`
+   - **Output Directory**: `frontend/dist`
+   - **Root Directory**: `.` (root)
 
-## 🛠️ Internal Structure
+## 🚀 Local Start
 
-- `server.js`: The unified engine representing both Teacher and Student backends.
-- `frontend/`: Contains the source code and built files for the web interface.
-- `quiz.db`: The database where all your questions and results are saved.
-- `run_quiz.bat`: Local launcher.
-- `share_quiz.bat`: Internet-sharing launcher (uses localtunnel).
-- `force_cleanup.bat`: Use this if the server ever gets "stuck" or says "Port in Use".
+1. **Run the Server**: Double-click **`run_quiz.bat`**.
+2. **Open Dashboard**: Go to [http://localhost:8000](http://localhost:8000).
+3. **Internet Sharing**: Double-click **`share_quiz.bat`** to get a public link.
+
+## 🛠️ Project Structure
+
+- `api/index.js`: Cloud-optimized backend (Serverless).
+- `server.js`: Local-optimized backend.
+- `frontend/`: React source code.
+- `quiz.db`: Local SQLite database.
+- `vercel.json`: Cloud routing configuration.
 
 ## 📦 Requirements
-- Only **Node.js** needs to be installed on the host computer.
+- **Node.js** (for local)
+- **Vercel Account** (for cloud)
