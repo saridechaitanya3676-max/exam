@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { open } = require('sqlite');
+const { Pool } = require('pg');
 const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -12,18 +13,69 @@ app.use(cors());
 app.use(express.json());
 
 // Database setup
+const IS_POSTGRES = !!process.env.DATABASE_URL;
 let db;
-(async () => {
-    db = await open({
-        filename: path.join(__dirname, 'quiz.db'),
-        driver: sqlite3.Database
-    });
-    console.log('Connected to SQLite database.');
+let pgPool;
 
-    // Initialize tables if they don't exist
-    await db.exec(`
+(async () => {
+    if (IS_POSTGRES) {
+        pgPool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+        });
+        console.log('Connected to PostgreSQL database.');
+        
+        // Helper to run queries on either DB
+        db = {
+            run: async (sql, params = []) => {
+                let pgSql = sql;
+                // Handle SQLite specific "INSERT OR IGNORE"
+                if (sql.includes('INSERT OR IGNORE')) {
+                    pgSql = sql.replace('INSERT OR IGNORE INTO', 'INSERT INTO') + ' ON CONFLICT DO NOTHING';
+                }
+                
+                // For INSERT, get the ID back
+                if (pgSql.trim().toUpperCase().startsWith('INSERT')) {
+                    pgSql += ' RETURNING id';
+                }
+
+                let paramIndex = 1;
+                const convertedSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
+                
+                // Wrap params in array if single value
+                const normalizedParams = Array.isArray(params) ? params : [params];
+                const res = await pgPool.query(convertedSql, normalizedParams);
+                return { lastID: res.rows[0]?.id };
+            },
+            get: async (sql, params = []) => {
+                let paramIndex = 1;
+                const convertedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+                const normalizedParams = Array.isArray(params) ? params : [params];
+                const res = await pgPool.query(convertedSql, normalizedParams);
+                return res.rows[0];
+            },
+            all: async (sql, params = []) => {
+                let paramIndex = 1;
+                const convertedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+                const normalizedParams = Array.isArray(params) ? params : [params];
+                const res = await pgPool.query(convertedSql, normalizedParams);
+                return res.rows;
+            },
+            exec: async (sql) => pgPool.query(sql)
+        };
+    } else {
+        const sqliteDb = await open({
+            filename: path.join(__dirname, 'quiz.db'),
+            driver: sqlite3.Database
+        });
+        console.log('Connected to SQLite database.');
+        db = sqliteDb;
+    }
+
+    // Initialize tables
+    const schema = `
         CREATE TABLE IF NOT EXISTS questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             text TEXT,
             options TEXT,
             correct_index INTEGER,
@@ -36,18 +88,18 @@ let db;
             value TEXT
         );
         CREATE TABLE IF NOT EXISTS submissions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             student_name TEXT,
             roll_no TEXT,
             score INTEGER,
             total_questions INTEGER,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             teacher_id INTEGER,
             test_name TEXT,
             tab_switches INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS teachers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
             password TEXT,
             security_question TEXT,
@@ -57,43 +109,50 @@ let db;
             show_results INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS waiting_room (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             student_name TEXT,
             roll_no TEXT,
             teacher_id INTEGER,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS tests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             teacher_id INTEGER,
             name TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(teacher_id, name)
         );
-    `);
-    
-    // Check if new columns exist (simple migration)
-    const qCols = await db.all("PRAGMA table_info(questions)");
-    if (!qCols.find(c => c.name === 'teacher_id')) {
-        await db.run("ALTER TABLE questions ADD COLUMN teacher_id INTEGER");
-        await db.run("ALTER TABLE questions ADD COLUMN test_name TEXT DEFAULT 'Default'");
-    }
-    if (!qCols.find(c => c.name === 'timer_seconds')) {
-        await db.run("ALTER TABLE questions ADD COLUMN timer_seconds INTEGER DEFAULT 30");
-    }
-    
-    const sCols = await db.all("PRAGMA table_info(submissions)");
-    if (!sCols.find(c => c.name === 'teacher_id')) {
-        await db.run("ALTER TABLE submissions ADD COLUMN teacher_id INTEGER");
-        await db.run("ALTER TABLE submissions ADD COLUMN test_name TEXT");
-        await db.run("ALTER TABLE submissions ADD COLUMN tab_switches INTEGER DEFAULT 0");
-    }
+    `;
 
-    const tCols = await db.all("PRAGMA table_info(teachers)");
-    if (!tCols.find(c => c.name === 'exam_status')) {
-        await db.run("ALTER TABLE teachers ADD COLUMN exam_status TEXT DEFAULT 'waiting'");
-        await db.run("ALTER TABLE teachers ADD COLUMN current_test_name TEXT DEFAULT 'General Quiz'");
-        await db.run("ALTER TABLE teachers ADD COLUMN show_results INTEGER DEFAULT 0");
+    // SQLite doesn't support SERIAL or TIMESTAMP exactly like this, so we tweak it for SQLite if needed
+    if (!IS_POSTGRES) {
+        await db.exec(schema.replace(/SERIAL PRIMARY KEY/g, 'INTEGER PRIMARY KEY AUTOINCREMENT').replace(/TIMESTAMP/g, 'DATETIME'));
+        
+        // Simple migration for SQLite (Postgres will have these from the start if new)
+        const qCols = await db.all("PRAGMA table_info(questions)");
+        if (!qCols.find(c => c.name === 'teacher_id')) {
+            await db.run("ALTER TABLE questions ADD COLUMN teacher_id INTEGER");
+            await db.run("ALTER TABLE questions ADD COLUMN test_name TEXT DEFAULT 'Default'");
+        }
+        if (!qCols.find(c => c.name === 'timer_seconds')) {
+            await db.run("ALTER TABLE questions ADD COLUMN timer_seconds INTEGER DEFAULT 30");
+        }
+        
+        const sCols = await db.all("PRAGMA table_info(submissions)");
+        if (!sCols.find(c => c.name === 'teacher_id')) {
+            await db.run("ALTER TABLE submissions ADD COLUMN teacher_id INTEGER");
+            await db.run("ALTER TABLE submissions ADD COLUMN test_name TEXT");
+            await db.run("ALTER TABLE submissions ADD COLUMN tab_switches INTEGER DEFAULT 0");
+        }
+
+        const tCols = await db.all("PRAGMA table_info(teachers)");
+        if (!tCols.find(c => c.name === 'exam_status')) {
+            await db.run("ALTER TABLE teachers ADD COLUMN exam_status TEXT DEFAULT 'waiting'");
+            await db.run("ALTER TABLE teachers ADD COLUMN current_test_name TEXT DEFAULT 'General Quiz'");
+            await db.run("ALTER TABLE teachers ADD COLUMN show_results INTEGER DEFAULT 0");
+        }
+    } else {
+        await db.exec(schema);
     }
 
     console.log('Database tables verified/created.');
