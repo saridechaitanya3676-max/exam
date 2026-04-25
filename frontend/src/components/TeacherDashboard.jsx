@@ -38,6 +38,7 @@ function TeacherDashboard({ onBack }) {
   // Exam Status
   const [examStatus, setExamStatus] = useState('waiting');
   const [showResultsToggle, setShowResultsToggle] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   useEffect(() => {
     checkSetup();
@@ -199,24 +200,18 @@ function TeacherDashboard({ onBack }) {
     }
   };
 
-  const deleteTest = async (e, id) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    console.log("Attempting to delete test ID:", id);
-    if (window.confirm('Are you sure you want to delete this test history? This will only remove the record from history, not the questions.')) {
-      try {
-        const res = await teacherApi.deleteTest(id);
-        console.log("Delete response:", res.data);
-        alert('Test record deleted successfully');
-        await loadData(); // Explicitly await refresh
-      } catch (err) {
-        console.error("Delete error details:", err);
-        const errMsg = err.response?.data?.error || err.message;
-        alert('Failed to delete test: ' + errMsg);
-      }
+  const deleteTest = async (id) => {
+    console.log("EXECUTE: Deleting test ID:", id);
+    try {
+      const res = await teacherApi.deleteTest(id);
+      console.log("Delete response:", res.data);
+      // alert('Test record deleted successfully');
+      setDeleteConfirmId(null);
+      await loadData(); // Explicitly await refresh
+    } catch (err) {
+      console.error("Delete error details:", err);
+      const errMsg = err.response?.data?.error || err.message;
+      alert('Failed to delete test: ' + errMsg);
     }
   };
 
@@ -757,22 +752,28 @@ function TeacherDashboard({ onBack }) {
                           }}>
                             <Edit2 size={16} />
                           </button>
-                          <button 
-                            type="button"
-                            className="btn btn-secondary" 
-                            title="Delete Record" 
-                            style={{ color: 'var(--error)', gap: '0.5rem' }} 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log("DEBUG: Delete button clicked for ID:", t.id);
-                              window.alert("Delete initiated for ID: " + t.id);
-                              deleteTest(e, t.id);
-                            }}
-                          >
-                            <Trash2 size={16} style={{ pointerEvents: 'none' }} />
-                            <span>Delete</span>
-                          </button>
+                          {deleteConfirmId === t.id ? (
+                            <button 
+                              type="button"
+                              className="btn" 
+                              style={{ background: 'var(--error)', color: 'white', gap: '0.5rem' }} 
+                              onClick={() => deleteTest(t.id)}
+                            >
+                              <CheckCircle size={16} />
+                              <span>Confirm?</span>
+                            </button>
+                          ) : (
+                            <button 
+                              type="button"
+                              className="btn btn-secondary" 
+                              title="Delete Record" 
+                              style={{ color: 'var(--error)', gap: '0.5rem' }} 
+                              onClick={() => setDeleteConfirmId(t.id)}
+                            >
+                              <Trash2 size={16} />
+                              <span>Delete</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
