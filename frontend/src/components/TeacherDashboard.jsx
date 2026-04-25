@@ -678,16 +678,41 @@ function TeacherDashboard({ onBack }) {
                       background: 'var(--bg-card)', 
                       padding: '1rem', 
                       borderRadius: '0.75rem', 
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      border: s.tab_switches > 0 ? '1px solid var(--error)' : '1px solid rgba(255,255,255,0.1)',
                       display: 'flex',
                       alignItems: 'center',
+                      justifyContent: 'space-between',
                       gap: '0.75rem'
                     }}>
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 10px var(--success)' }}></div>
-                      <div>
-                        <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.student_name}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.roll_no}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ 
+                          width: '10px', 
+                          height: '10px', 
+                          borderRadius: '50%', 
+                          background: s.tab_switches > 0 ? 'var(--error)' : 'var(--success)', 
+                          boxShadow: `0 0 10px ${s.tab_switches > 0 ? 'var(--error)' : 'var(--success)'}` 
+                        }}></div>
+                        <div>
+                          <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.student_name}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.roll_no}</p>
+                        </div>
                       </div>
+                      {s.tab_switches > 0 && (
+                        <div style={{ 
+                          background: 'rgba(244, 63, 94, 0.1)', 
+                          color: 'var(--error)', 
+                          padding: '0.2rem 0.5rem', 
+                          borderRadius: '0.4rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem'
+                        }}>
+                          <ShieldAlert size={12} />
+                          {s.tab_switches}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

@@ -34,6 +34,7 @@ export const studentApi = {
   submitQuiz: (data) => api.post('/submissions', data),
   getExamStatus: (username) => api.get(`/exam-status/${username}`),
   joinExam: (data) => api.post('/student/join', data),
+  updateSwitches: (data) => api.post('/student/update-switches', data),
 };
 
 export default api;

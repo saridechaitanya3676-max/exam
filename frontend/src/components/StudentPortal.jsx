@@ -20,18 +20,30 @@ function StudentPortal({ onBack, teacherUsername: initialTeacherUsername, initia
 
   // Proctoring: Detect Tab Switches
   useEffect(() => {
-    if (step !== 'quiz') return;
+    if (step !== 'quiz' && step !== 'waiting') return;
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.hidden) {
-        setTabSwitches(prev => prev + 1);
+        const newCount = tabSwitches + 1;
+        setTabSwitches(newCount);
         console.warn("Tab switch detected!");
+        
+        // Report to server instantly
+        try {
+          await studentApi.updateSwitches({
+            roll_no: studentInfo.roll_no,
+            teacher_id: teacherId,
+            tab_switches: newCount
+          });
+        } catch (err) {
+          console.error("Failed to report tab switch", err);
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [step]);
+  }, [step, tabSwitches, studentInfo.roll_no, teacherId]);
 
   // Polling for Exam Status (Start/End/Results Visibility)
   useEffect(() => {
