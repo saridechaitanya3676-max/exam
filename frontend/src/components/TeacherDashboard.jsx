@@ -211,10 +211,11 @@ function TeacherDashboard({ onBack }) {
         const res = await teacherApi.deleteTest(id);
         console.log("Delete response:", res.data);
         alert('Test record deleted successfully');
-        loadData(); // Refresh the list
+        await loadData(); // Explicitly await refresh
       } catch (err) {
         console.error("Delete error details:", err);
-        alert('Failed to delete test: ' + (err.response?.data?.error || err.message));
+        const errMsg = err.response?.data?.error || err.message;
+        alert('Failed to delete test: ' + errMsg);
       }
     }
   };

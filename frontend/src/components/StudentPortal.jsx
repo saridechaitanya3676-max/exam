@@ -36,28 +36,31 @@ function StudentPortal({ onBack, teacherUsername: initialTeacherUsername, initia
   // Polling for Exam Status (Start/End/Results Visibility)
   useEffect(() => {
     let interval;
-        if (!teacherUsername) return; // Don't poll if teacher is not known
+    const checkStatus = async () => {
+      if (!teacherUsername) return; 
+      try {
         const res = await studentApi.getExamStatus(teacherUsername);
-        setExamStatus(res.data.status);
-        setTestName(res.data.test_name);
-        setTeacherId(res.data.teacher_id);
-        setShowResults(res.data.show_results === true); // Ensure boolean
-
-        
-        // Handle Exam Start
-        if (step === 'waiting' && res.data.status === 'started') {
-          const qRes = await studentApi.getQuestions(res.data.teacher_id, res.data.test_name);
-          setQuestions(qRes.data);
-          if (qRes.data.length > 0) {
-            setTimeLeft(qRes.data[0].timer_seconds || 30);
-            setStep('quiz');
+        if (res.data) {
+          setExamStatus(res.data.status);
+          setTestName(res.data.test_name);
+          setTeacherId(res.data.teacher_id);
+          setShowResults(res.data.show_results === true || res.data.show_results === 1);
+          
+          // Handle Exam Start
+          if (step === 'waiting' && res.data.status === 'started') {
+            const qRes = await studentApi.getQuestions(res.data.teacher_id, res.data.test_name);
+            setQuestions(qRes.data);
+            if (qRes.data.length > 0) {
+              setTimeLeft(qRes.data[0].timer_seconds || 30);
+              setStep('quiz');
+            }
           }
-        }
-        
-        // Handle Exam End (Force Submit)
-        if (step === 'quiz' && res.data.status === 'ended') {
-          alert('The teacher has ended the exam. Your current progress is being submitted.');
-          submitQuiz();
+          
+          // Handle Exam End (Force Submit)
+          if (step === 'quiz' && res.data.status === 'ended') {
+            alert('The teacher has ended the exam. Your current progress is being submitted.');
+            submitQuiz();
+          }
         }
       } catch (err) {
         console.error("Error checking exam status", err);
@@ -194,7 +197,7 @@ function StudentPortal({ onBack, teacherUsername: initialTeacherUsername, initia
               <input 
                 type="text" 
                 placeholder="Teacher ID / Username" 
-                className="input-field"
+                className="input"
                 value={teacherUsername}
                 onChange={(e) => setTeacherUsername(e.target.value)}
                 required 
