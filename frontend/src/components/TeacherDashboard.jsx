@@ -757,7 +757,16 @@ function TeacherDashboard({ onBack }) {
                           }}>
                             <Edit2 size={16} />
                           </button>
-                          <button className="btn btn-secondary" title="Delete Record" style={{ color: 'var(--error)' }} onClick={(e) => deleteTest(e, t.id)}>
+                          <button 
+                            type="button"
+                            className="btn btn-secondary" 
+                            title="Delete Record" 
+                            style={{ color: 'var(--error)' }} 
+                            onClick={(e) => {
+                              console.log("Delete button clicked for ID:", t.id);
+                              deleteTest(e, t.id);
+                            }}
+                          >
                             <Trash2 size={16} />
                           </button>
                         </div>
