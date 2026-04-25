@@ -46,6 +46,7 @@ function TeacherDashboard({ onBack }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [generatedQs, setGeneratedQs] = useState([]);
   const [aiError, setAiError] = useState('');
+  const [aiProvider, setAiProvider] = useState('gemini'); // gemini, openai, anthropic
 
   useEffect(() => {
     if (publicBaseUrl) {
@@ -351,7 +352,7 @@ function TeacherDashboard({ onBack }) {
     setAiError('');
     setGeneratedQs([]);
     try {
-      const res = await teacherApi.generateAIQuestions({ syllabus, botType, teacher_id: teacherId });
+      const res = await teacherApi.generateAIQuestions({ syllabus, botType, teacher_id: teacherId, provider: aiProvider });
       setGeneratedQs(res.data.questions);
       setMsg(`Successfully generated ${res.data.questions.length} questions using ${res.data.botName}!`);
     } catch (err) {
@@ -805,6 +806,35 @@ function TeacherDashboard({ onBack }) {
               <div>
                 <h2 style={{ margin: 0 }}>AI Question <span style={{ color: 'var(--primary)' }}>Paper Generator</span></h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Paste your syllabus below and select a bot to generate a full question paper automatically.</p>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '2rem' }}>
+              <p style={{ fontWeight: 600, marginBottom: '0.8rem' }}>AI Model Provider</p>
+              <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.3rem', borderRadius: '0.75rem', width: 'fit-content' }}>
+                {[
+                  { id: 'gemini', name: 'Google Gemini', color: '#6366f1' },
+                  { id: 'openai', name: 'ChatGPT (OpenAI)', color: '#10b981' },
+                  { id: 'anthropic', name: 'Claude (Anthropic)', color: '#d97706' }
+                ].map(p => (
+                  <button 
+                    key={p.id}
+                    onClick={() => setAiProvider(p.id)}
+                    style={{ 
+                      padding: '0.6rem 1.2rem', 
+                      borderRadius: '0.5rem', 
+                      border: 'none', 
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      background: aiProvider === p.id ? p.color : 'transparent',
+                      color: aiProvider === p.id ? 'white' : 'var(--text-muted)'
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
               </div>
             </div>
 

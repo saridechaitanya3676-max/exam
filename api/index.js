@@ -3,6 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { OpenAI } = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -515,26 +517,63 @@ const BOTS = {
 };
 
 app.post('/api/ai/generate', async (req, res) => {
-    const { syllabus, botType, teacher_id } = req.body;
+    const { syllabus, botType, teacher_id, provider = 'gemini' } = req.body;
     
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_API_KEY_HERE') {
-        return res.status(400).json({ error: 'Gemini API Key is not configured on the server. Please set GEMINI_API_KEY environment variable.' });
-    }
-
     const bot = BOTS[botType] || BOTS.standard;
-    
+    const systemPrompt = bot.prompt;
+    const userPrompt = `Syllabus/Topics:\n${syllabus}`;
+
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-        const prompt = `${bot.prompt}\n\nSyllabus/Topics:\n${syllabus}`;
+        let text = '';
         
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
-        
-        // Clean up JSON if AI includes markdown code blocks
+        if (provider === 'gemini') {
+            if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_API_KEY_HERE') {
+                return res.status(400).json({ error: 'Gemini API Key not configured.' });
+            }
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+            const response = await result.response;
+            text = response.text();
+        } 
+        else if (provider === 'openai') {
+            if (!process.env.OPENAI_API_KEY) {
+                return res.status(400).json({ error: 'OpenAI API Key not configured.' });
+            }
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            const response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                ],
+                response_format: { type: "json_object" }
+            });
+            text = response.choices[0].message.content;
+        }
+        else if (provider === 'anthropic') {
+            if (!process.env.ANTHROPIC_API_KEY) {
+                return res.status(400).json({ error: 'Anthropic API Key not configured.' });
+            }
+            const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+            const response = await anthropic.messages.create({
+                model: "claude-3-5-sonnet-20241022",
+                max_tokens: 4096,
+                system: systemPrompt,
+                messages: [{ role: "user", content: userPrompt }]
+            });
+            text = response.content[0].text;
+        }
+
+        // Clean up JSON
         text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        let questions = JSON.parse(text);
         
-        const questions = JSON.parse(text);
+        // If OpenAI/Claude returned an object with a "questions" key, extract it
+        if (!Array.isArray(questions) && questions.questions) {
+            questions = questions.questions;
+        }
+        
         res.json({ questions, botName: bot.name });
     } catch (err) {
         console.error('AI Generation Error:', err);
