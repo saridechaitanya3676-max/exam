@@ -2,9 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { OpenAI } = require('openai');
-const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -459,102 +456,7 @@ app.post('/api/submissions', async (req, res) => {
     }
 });
 
-// --- AI Question Generation ---
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'YOUR_API_KEY_HERE');
 
-const BOTS = {
-    standard: {
-        name: "Standard Bot",
-        style: "Balanced & Clear",
-        prompt: "Generate 10 balanced multiple-choice questions on the following syllabus for 8051 microcontrollers. Provide a mix of easy and medium difficulty. Ensure one option is clearly correct. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 30}]"
-    },
-    expert: {
-        name: "Expert Bot",
-        style: "Challenging & Deep",
-        prompt: "Generate 10 very challenging multiple-choice questions on the following syllabus for 8051 microcontrollers. Focus on deep conceptual understanding, multi-step logic, and advanced architecture. Ensure one option is clearly correct. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 60}]"
-    },
-    speedster: {
-        name: "Speedster Bot",
-        style: "Fast & Direct",
-        prompt: "Generate 10 quick-fire multiple-choice questions on the following syllabus for 8051 microcontrollers. Focus on direct recall of registers, flags, and instructions. Questions should be short and snappy. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 15}]"
-    },
-    practical: {
-        name: "Practical Bot",
-        style: "Hardware & Assembly",
-        prompt: "Generate 10 practical, code-focused multiple-choice questions on the following syllabus for 8051 microcontrollers. Include assembly code snippets and hardware interfacing scenarios. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 60}]"
-    },
-    guru: {
-        name: "Guru Bot",
-        style: "Comprehensive & Intricate",
-        prompt: "Generate 10 comprehensive multiple-choice questions on the following syllabus for 8051 microcontrollers. Cover edge cases, timing details, and intricate hardware specifics. Output ONLY valid JSON array of objects. Format: [{\"text\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"correct_index\": 0, \"timer_seconds\": 45}]"
-    }
-};
-
-app.post('/api/ai/generate', async (req, res) => {
-    const { syllabus, botType, teacher_id, provider = 'gemini' } = req.body;
-    
-    const bot = BOTS[botType] || BOTS.standard;
-    const systemPrompt = bot.prompt;
-    const userPrompt = `Syllabus/Topics:\n${syllabus}`;
-
-    try {
-        let text = '';
-        
-        if (provider === 'gemini') {
-            if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_API_KEY_HERE') {
-                return res.status(400).json({ error: 'Gemini API Key not configured.' });
-            }
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
-            const response = await result.response;
-            text = response.text();
-        } 
-        else if (provider === 'openai') {
-            if (!process.env.OPENAI_API_KEY) {
-                return res.status(400).json({ error: 'OpenAI API Key not configured.' });
-            }
-            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            const response = await openai.chat.completions.create({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ],
-                response_format: { type: "json_object" }
-            });
-            text = response.choices[0].message.content;
-            // OpenAI response might be a single object or array depending on prompt, but we expect array in "questions" key or root
-        }
-        else if (provider === 'anthropic') {
-            if (!process.env.ANTHROPIC_API_KEY) {
-                return res.status(400).json({ error: 'Anthropic API Key not configured.' });
-            }
-            const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-            const response = await anthropic.messages.create({
-                model: "claude-3-5-sonnet-20241022",
-                max_tokens: 4096,
-                system: systemPrompt,
-                messages: [{ role: "user", content: userPrompt }]
-            });
-            text = response.content[0].text;
-        }
-
-        // Clean up JSON
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        let questions = JSON.parse(text);
-        
-        // If OpenAI/Claude returned an object with a "questions" key, extract it
-        if (!Array.isArray(questions) && questions.questions) {
-            questions = questions.questions;
-        }
-        
-        res.json({ questions, botName: bot.name });
-    } catch (err) {
-        console.error('AI Generation Error:', err);
-        res.status(500).json({ error: 'Failed to generate questions. ' + err.message });
-    }
-});
 
 app.get('/api/submissions', async (req, res) => {
     const { teacher_id } = req.query;
