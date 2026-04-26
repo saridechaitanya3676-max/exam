@@ -97,6 +97,15 @@ function TeacherDashboard({ onBack }) {
     return () => clearInterval(interval);
   }, [isAuthenticated, tab, teacherId]);
 
+  useEffect(() => {
+    let interval;
+    if (isAuthenticated && tab === 'monitoring') {
+      loadData();
+      interval = setInterval(loadData, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isAuthenticated, tab, teacherId]);
+
   const loadData = async () => {
     try {
       if (tab === 'questions') {
@@ -108,6 +117,9 @@ function TeacherDashboard({ onBack }) {
       } else if (tab === 'history') {
         const res = await teacherApi.getTests(teacherId);
         setTests(res.data);
+      } else if (tab === 'monitoring') {
+        const res = await teacherApi.getSubmissions(teacherId);
+        setResults(res.data);
       }
     } catch (err) {
       console.error(err);
