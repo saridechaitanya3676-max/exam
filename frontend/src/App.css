@@ -278,6 +278,13 @@ input:checked + .slider:before {
   cursor: pointer;
 }
 
+.select option,
+select option,
+.input option {
+  background: #1e293b;
+  color: white;
+}
+
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
